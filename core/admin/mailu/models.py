@@ -215,7 +215,14 @@ class Email(object):
                 self.localpart,
                 idna.encode(self.domain_name).decode('ascii'),
             )
-            msg = text.MIMEText(body)
+
+            subtype = 'plain'
+
+            # assume every html email starts with a doctype
+            if app.config['PARSE_HTML'].lower() == 'true' and body.trim().startsWith('<!DOCTYPE'):
+                subtype = 'html'
+
+            msg = text.MIMEText(body, subtype)
             msg['Subject'] = subject
             msg['From'] = from_address
             msg['To'] = to_address
@@ -308,8 +315,13 @@ class User(Base, Email):
 
     def send_welcome(self):
         if app.config["WELCOME"].lower() == "true":
-            self.sendmail(app.config["WELCOME_SUBJECT"],
-                app.config["WELCOME_BODY"])
+            self.sendmail(self.tokenize(app.config["WELCOME_SUBJECT"]),
+                self.tokenize(app.config["WELCOME_BODY"]))
+
+    def tokenize(self, text):
+        return text
+            .replace('*|NAME|*', self.displayed_name)
+            .replace('*|EMAIL|*', self.email)
 
     @classmethod
     def login(cls, email, password):
